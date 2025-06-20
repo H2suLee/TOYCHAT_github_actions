@@ -35,36 +35,31 @@ public class AdminChatConroller {
     @Autowired
     private ChatroomService chatroomService;
     
-    // 관리자 채팅 이력 : 03 인 [카테고리, 상태(진행중/완료), 채팅방 생성일, 채팅방 수정일, 문의자, 관리(메모)]
     @PostMapping("/mnglist")
     public List<ChatroomInfo> getChatRoomsMngList(@RequestBody HashMap<String,Object> searchMap) {
         // id
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         UserDetailsImpl userDetails = (UserDetailsImpl) authentication.getPrincipal();
         String id = userDetails.getUsername();
-        
-        return chatroomService.getChatRoomsMngList(searchMap);
+        List<ChatroomInfo> resultList = chatroomService.getChatRoomsMngList(searchMap);
+        return resultList;
     }    
     
-    // 채팅 대기 리스트 : 상태가 01, 02인 [생성일, 사용자 이름, 상태]
     @PostMapping("/liveChatWaitingList")
     public List<ChatroomInfo> getLiveChatWaitingList(@RequestBody HashMap<String,Object> searchMap) {
     	return chatroomService.getLiveChatWaitingList(searchMap);
     }     
 
-    // 채팅 관리 정보 : category, memo
     @PostMapping("/chatManageInfo")
     public Chatroom getChatManageInfo(@RequestBody Chatroom chatroom) {
     	return chatroomService.getChatManageInfo(chatroom);
     }     
 
-    // 채팅 관리 저장 : category, memo
     @PostMapping("/saveChatManageInfo")
     public void saveChatManageInfo(@RequestBody Chatroom chatroom) {
     	chatroomService.saveChatManageInfo(chatroom);
     }     
 
-    // 내 이력 : 상태가 02, 03인 [생성일, 사용자 이름, 상태]
     @PostMapping("/mylist")
     public List<ChatroomInfo> getChatRoomsByUserId(@RequestBody User user) {
         return chatroomService.getChatRoomsByUserId(user);

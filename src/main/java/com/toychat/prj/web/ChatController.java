@@ -51,12 +51,7 @@ public class ChatController {
     @PostMapping("/liveChatList")
     public List<Object> liveChatList(@RequestBody Chatroom chatroom) {
     	List<Object> returnList = new ArrayList<>();
-    	try {
-    		returnList = chatService.getLiveChatsByChatroomId(chatroom);
-		} catch (Exception e) {
-			e.printStackTrace();
-			// TODO: handle exception
-		}
+    	returnList = chatService.getLiveChatsByChatroomId(chatroom);
     	return returnList; 
     }    
     

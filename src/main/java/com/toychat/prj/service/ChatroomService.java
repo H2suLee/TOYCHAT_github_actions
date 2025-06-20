@@ -28,6 +28,7 @@ import org.springframework.data.mongodb.core.aggregation.SortOperation;
 import org.springframework.data.mongodb.core.aggregation.UnwindOperation;
 import org.springframework.data.mongodb.core.query.Criteria;
 import org.springframework.data.mongodb.core.query.Query;
+import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Service;
 
 import com.toychat.prj.common.sequence.SequenceService;
@@ -60,6 +61,9 @@ public class ChatroomService {
 	
     @Autowired
     private UserRepository userRepository;
+    
+	@Autowired
+	private RedisTemplate<String, Object> redisTemplate;
 
 	@Resource(name = "Util")
     private Util util;
@@ -87,7 +91,6 @@ public class ChatroomService {
 	}
 
 	// 채팅방 리스트 by userid
-	// roomId, credt, 내용, 상담원, 상태, 마지막 메시지의 chatId, 마지막 메시지의 credt 
 	public List<ChatroomInfo> getChatRoomsByUserId(User user) {
 		String userId = user.getId();
 		
@@ -97,7 +100,7 @@ public class ChatroomService {
 		// projection
 		ProjectionOperation addParticipantsSizeProjection = project()
 		    .and("_id").as("_id")
-		    //.and(ArrayOperators.ArrayElemAt.arrayOf("participants").elementAt(0)).as("usr")
+		    .and(ArrayOperators.ArrayElemAt.arrayOf("participants").elementAt(0)).as("usr")
 		    .and(ArrayOperators.ArrayElemAt.arrayOf("participants").elementAt(1)).as("adm")
 		    .and("status").as("status")
 		    .and("credt").as("credt")
@@ -105,7 +108,7 @@ public class ChatroomService {
 		        ConditionalOperators.ifNull("participants").then(new ArrayList<>())
 		    )).as("participantsSize");        
 
-        MatchOperation filterByParticipantsSize = match(Criteria.where("participantsSize").gte(2));
+        //MatchOperation filterByParticipantsSize = match(Criteria.where("participantsSize").gte(2));
 
         // Lookup을 사용하여 "chats" 컬렉션에서 데이터 조회
         LookupOperation lookupOperation = lookup("chats", "_id", "chatroomId", "lastMessages");
@@ -119,7 +122,7 @@ public class ChatroomService {
         // 필요 필드 그룹화
         GroupOperation groupOperation = group("_id")
                 .first("_id").as("chatroomId")
-        	    //.first("usr").as("usr")
+        	    .first("usr").as("usr")
         	    .first("adm").as("adm")
                 .first("credt").as("credt")
                 .first("status").as("status")
@@ -134,7 +137,7 @@ public class ChatroomService {
         Aggregation aggregation = newAggregation(
                 matchOperation,
                 addParticipantsSizeProjection,
-                filterByParticipantsSize,
+                //filterByParticipantsSize,
                 lookupOperation,
                 unwindOperation,
                 sortOperation,
@@ -146,10 +149,26 @@ public class ChatroomService {
         AggregationResults<ChatroomInfo> results = mongoTemplate.aggregate(aggregation, "chatrooms", ChatroomInfo.class);
         List<ChatroomInfo> list = results.getMappedResults();
         
+        list = getRedisLastMessageMapped(list);
         return list;
 	}
 
-	// 채팅 관리 리스트 : 상태가 02, 03 인 [카테고리, 상태(진행중/완료), 채팅방 생성일, 채팅방 수정일, 문의자, 관리(메모)]
+	private List<ChatroomInfo> getRedisLastMessageMapped(List<ChatroomInfo> list) {
+		Chat chatMessageDto = null;
+        for (ChatroomInfo room : list) {
+		    String rid = room.getChatroomId();
+		    if (!"03".equals(room.getStatus())) {
+		    	chatMessageDto = (Chat) redisTemplate.opsForList().index("chat_" + rid, -1);
+		    	if(chatMessageDto != null) {
+		    		room.setLastContent(chatMessageDto.getContent());
+		    		room.setLastCredt(chatMessageDto.getCredt());
+		    	}
+		    }
+		} 
+         
+		return list;
+	}
+
 	public List<ChatroomInfo> getChatRoomsMngList(HashMap<String, Object> searchMap) {
 		// 필터링 조건
 		MatchOperation matchOperation = match(Criteria.where("status").is("03")
@@ -195,23 +214,33 @@ public class ChatroomService {
         return list;
 	}
 
-	// 실시간 상담 대기 리스트 : 상태가 01 인 [생성일, 사용자 이름, 상태]
 	public List<ChatroomInfo> getLiveChatWaitingList(HashMap<String, Object> searchMap) {
-        // 쿼리 작성
-        Query query = new Query()
-                .addCriteria(Criteria.where("status").in("01", "02"))
-                .addCriteria(Criteria.where("participants").ne(null));
-
-        query.fields()
-             .include("credt")
-             .include("status")
-             .include("participants.id")
-             .include("participants.nick")
-             .include("_id");
+		Aggregation aggregation = newAggregation(
+			    Aggregation.match(
+			            Criteria.where("status").in("01", "02")
+			                    .and("participants").ne(null)
+			        ),
+			    Aggregation.project()
+			    	.and("_id").as("chatroomId")
+			    	.and(ArrayOperators.ArrayElemAt.arrayOf("participants").elementAt(0)).as("usr")
+				    .and(ArrayOperators.ArrayElemAt.arrayOf("participants").elementAt(1)).as("adm")
+				    .and("status").as("status")
+				    .and("credt").as("credt")
+				    .and("upddt").as("upddt")
+			    	
+			);
 
         // 쿼리 실행
-        List<ChatroomInfo> results = mongoTemplate.find(query, ChatroomInfo.class, "chatrooms");
-        return results;
+        AggregationResults<ChatroomInfo> results = mongoTemplate.aggregate(aggregation, "chatrooms", ChatroomInfo.class);
+
+        List<ChatroomInfo> list = results.getMappedResults();
+        list = getRedisLastMessageMapped(list);
+        
+        for(ChatroomInfo chat : list) {
+        	System.out.println("###");
+        	System.out.println(chat.toString());
+        }
+        return list;
 	}
 
 	// 채팅방 관리 디테일 조회
@@ -278,7 +307,6 @@ public class ChatroomService {
 			);
 
 		boolean exists = mongoTemplate.exists(query, "chatrooms");
-		System.out.println("exists : " + exists);
 		boolean isNew = !exists;
 		return isNew;
 	}
