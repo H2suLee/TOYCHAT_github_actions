@@ -1,6 +1,7 @@
 package com.toychat.prj.web;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 
 import org.springframework.beans.factory.annotation.Autowired;
@@ -38,7 +39,9 @@ public class ChatController {
     // 사용자 채팅 이력
     @PostMapping("/chatroomList")
     public List<ChatroomInfo> getChatRoomsByUserId(@RequestBody User user) {
-        return chatroomService.getChatRoomsByUserId(user);
+   	 	HashMap<String,Object> searchMap = new HashMap<String, Object>();
+   	 	searchMap.put("searchUser", user);
+        return chatroomService.getChatRooms(searchMap);
     }    
 
     // 채팅 상세

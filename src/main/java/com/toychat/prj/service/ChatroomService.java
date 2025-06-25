@@ -11,7 +11,6 @@ import static org.springframework.data.mongodb.core.aggregation.Aggregation.unwi
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Sort;
@@ -39,7 +38,6 @@ import com.toychat.prj.entity.ChatroomInfo;
 import com.toychat.prj.entity.Participant;
 import com.toychat.prj.entity.User;
 import com.toychat.prj.repository.ChatroomRepository;
-import com.toychat.prj.repository.UserRepository;
 
 import jakarta.annotation.Resource;
 
@@ -59,9 +57,6 @@ public class ChatroomService {
 	@Autowired
 	private ChatroomRepository chatroomRepository;
 	
-    @Autowired
-    private UserRepository userRepository;
-    
 	@Autowired
 	private RedisTemplate<String, Object> redisTemplate;
 
@@ -90,69 +85,77 @@ public class ChatroomService {
          return room;
 	}
 
-	// 채팅방 리스트 by userid
-	public List<ChatroomInfo> getChatRoomsByUserId(User user) {
-		String userId = user.getId();
-		
-        // participants._id = userId
-        MatchOperation matchOperation = match(Criteria.where("participants._id").is(userId).and("participants").ne(null));
+	// 채팅방 리스트
+	public List<ChatroomInfo> getChatRooms(HashMap<String, Object> searchMap) {
+		List<ChatroomInfo> list = null;
+
+		// 검색 조건 세팅
+		Criteria criteria = Criteria.where("participants").ne(null);
+
+		User searchUser = (User) searchMap.get("searchUser");
+		if (searchUser != null) {
+			String userId = searchUser.getId();
+			criteria.and("participants._id").is(userId);
+		}
+
+		List<String> searchStatus = (List<String>) searchMap.get("searchStatus");
+		if (searchStatus != null) {
+			criteria.and("status").in(searchStatus);
+		}
+
+		MatchOperation matchOperation = match(criteria);
 
 		// projection
-		ProjectionOperation addParticipantsSizeProjection = project()
-		    .and("_id").as("_id")
-		    .and(ArrayOperators.ArrayElemAt.arrayOf("participants").elementAt(0)).as("usr")
-		    .and(ArrayOperators.ArrayElemAt.arrayOf("participants").elementAt(1)).as("adm")
-		    .and("status").as("status")
-		    .and("credt").as("credt")
-		    .and(ArrayOperators.Size.lengthOfArray(
-		        ConditionalOperators.ifNull("participants").then(new ArrayList<>())
-		    )).as("participantsSize");        
+		ProjectionOperation addParticipantsSizeProjection = project().and("_id").as("_id")
+				.and(ArrayOperators.ArrayElemAt.arrayOf("participants").elementAt(0)).as("usr")
+				.and(ArrayOperators.ArrayElemAt.arrayOf("participants").elementAt(1)).as("adm")
+				.and("status").as("status")
+				.and("credt").as("credt")
+				.and(ArrayOperators.Size
+						.lengthOfArray(ConditionalOperators.ifNull("participants").then(new ArrayList<>())))
+				.as("participantsSize");
 
-        //MatchOperation filterByParticipantsSize = match(Criteria.where("participantsSize").gte(2));
+		MatchOperation filterByParticipantsSize = match(Criteria.where("participantsSize").gte(1));
+		if(searchMap.get("searchMinimumParticipantsSize") != null) {
+			filterByParticipantsSize = match(Criteria.where("participantsSize").gte(2));
+		}
 
-        // Lookup을 사용하여 "chats" 컬렉션에서 데이터 조회
-        LookupOperation lookupOperation = lookup("chats", "_id", "chatroomId", "lastMessages");
+		// Lookup을 사용하여 "chats" 컬렉션에서 데이터 조회
+		LookupOperation lookupOperation = lookup("chats", "_id", "chatroomId", "lastMessages");
 
-        // lastMessages 배열을 unwind 하여 각 채팅방의 마지막 메시지를 가져옵니다.
-        UnwindOperation unwindOperation = unwind("lastMessages", true);
+		// lastMessages 배열을 unwind 하여 각 채팅방의 마지막 메시지를 가져옵니다.
+		UnwindOperation unwindOperation = unwind("lastMessages", true);
 
-        // credt 내림차순
-        SortOperation sortOperation = sort(Sort.by(Sort.Direction.DESC, "lastMessages.credt"));
+		// credt 내림차순
+		SortOperation sortOperation = sort(Sort.by(Sort.Direction.DESC, "lastMessages.credt"));
 
-        // 필요 필드 그룹화
-        GroupOperation groupOperation = group("_id")
-                .first("_id").as("chatroomId")
-        	    .first("usr").as("usr")
-        	    .first("adm").as("adm")
-                .first("credt").as("credt")
-                .first("status").as("status")
-                .first("lastMessages.content").as("lastContent")
-                .first("lastMessages.type").as("lastChatType")
-                .first("lastMessages.credt").as("lastCredt");
-        
-        // 상태, 마지막 채팅일시 내림차순
-        SortOperation finalSortOperation = sort(Sort.by(Sort.Order.asc("status"),Sort.Order.desc("lastCredt")));
+		// 필요 필드 그룹화
+		GroupOperation groupOperation = group("_id")
+				.first("_id").as("chatroomId")
+				.first("usr").as("usr")
+				.first("adm").as("adm")
+				.first("credt").as("credt")
+				.first("status").as("status")
+				.first("lastMessages.content").as("lastContent")
+				.first("lastMessages.type").as("lastChatType")
+				.first("lastMessages.credt").as("lastCredt");
 
-        // Aggregation 파이프라인을 설정
-        Aggregation aggregation = newAggregation(
-                matchOperation,
-                addParticipantsSizeProjection,
-                //filterByParticipantsSize,
-                lookupOperation,
-                unwindOperation,
-                sortOperation,
-                groupOperation,
-                finalSortOperation
-        );
+		// 상태, 마지막 채팅일시 내림차순
+		SortOperation finalSortOperation = sort(Sort.by(Sort.Order.asc("status"), Sort.Order.desc("lastCredt")));
 
-        // Aggregation 실행
-        AggregationResults<ChatroomInfo> results = mongoTemplate.aggregate(aggregation, "chatrooms", ChatroomInfo.class);
-        List<ChatroomInfo> list = results.getMappedResults();
-        
-        list = getRedisLastMessageMapped(list);
-        return list;
+		// Aggregation 파이프라인을 설정
+		Aggregation aggregation = newAggregation(matchOperation, addParticipantsSizeProjection,
+				filterByParticipantsSize, lookupOperation, unwindOperation, sortOperation, groupOperation, finalSortOperation);
+
+		// Aggregation 실행
+		AggregationResults<ChatroomInfo> results = mongoTemplate.aggregate(aggregation, "chatrooms",ChatroomInfo.class);
+		list = results.getMappedResults();
+
+		list = getRedisLastMessageMapped(list);
+
+		return list;
 	}
-
+	
 	private List<ChatroomInfo> getRedisLastMessageMapped(List<ChatroomInfo> list) {
 		Chat chatMessageDto = null;
         for (ChatroomInfo room : list) {
@@ -168,81 +171,7 @@ public class ChatroomService {
          
 		return list;
 	}
-
-	public List<ChatroomInfo> getChatRoomsMngList(HashMap<String, Object> searchMap) {
-		// 필터링 조건
-		MatchOperation matchOperation = match(Criteria.where("status").is("03")
-		                                             .and("participants").ne(null));
-
-		// participants의 수 계산 및 필터링
-		ProjectionOperation addParticipantsSizeProjection = project()
-		    .and("_id").as("chatroomId")
-		    .and(ArrayOperators.ArrayElemAt.arrayOf("participants").elementAt(0)).as("usr")
-		    .and(ArrayOperators.ArrayElemAt.arrayOf("participants").elementAt(1)).as("adm")
-		    .and("status").as("status")
-		    .and("credt").as("credt")
-		    .and("upddt").as("upddt")
-		    .and(ArrayOperators.Size.lengthOfArray(
-		        ConditionalOperators.ifNull("participants").then(new ArrayList<>())
-		    )).as("participantsSize");
-
-		MatchOperation filterByParticipantsSize = match(Criteria.where("participantsSize").gte(2));
-
-		// 그룹화 및 정렬
-		GroupOperation groupOperation = group("_id")
-		    .first("_id").as("chatroomId")
-		    .first("usr").as("usr")
-		    .first("adm").as("adm")
-		    .first("status").as("status")
-		    .first("credt").as("credt")
-		    .first("upddt").as("upddt");
-
-		SortOperation finalSortOperation = sort(Sort.by(Sort.Direction.DESC, "credt"));
-
-		// Aggregation 파이프라인을 설정
-		Aggregation aggregation = newAggregation(
-		    matchOperation,
-		    addParticipantsSizeProjection,
-		    filterByParticipantsSize,
-		    groupOperation,
-		    finalSortOperation
-		);
-
-		// Aggregation 실행
-		AggregationResults<ChatroomInfo> results = mongoTemplate.aggregate(aggregation, "chatrooms", ChatroomInfo.class);
-		List<ChatroomInfo> list = results.getMappedResults();
-        return list;
-	}
-
-	public List<ChatroomInfo> getLiveChatWaitingList(HashMap<String, Object> searchMap) {
-		Aggregation aggregation = newAggregation(
-			    Aggregation.match(
-			            Criteria.where("status").in("01", "02")
-			                    .and("participants").ne(null)
-			        ),
-			    Aggregation.project()
-			    	.and("_id").as("chatroomId")
-			    	.and(ArrayOperators.ArrayElemAt.arrayOf("participants").elementAt(0)).as("usr")
-				    .and(ArrayOperators.ArrayElemAt.arrayOf("participants").elementAt(1)).as("adm")
-				    .and("status").as("status")
-				    .and("credt").as("credt")
-				    .and("upddt").as("upddt")
-			    	
-			);
-
-        // 쿼리 실행
-        AggregationResults<ChatroomInfo> results = mongoTemplate.aggregate(aggregation, "chatrooms", ChatroomInfo.class);
-
-        List<ChatroomInfo> list = results.getMappedResults();
-        list = getRedisLastMessageMapped(list);
-        
-        for(ChatroomInfo chat : list) {
-        	System.out.println("###");
-        	System.out.println(chat.toString());
-        }
-        return list;
-	}
-
+	
 	// 채팅방 관리 디테일 조회
 	public Chatroom getChatManageInfo(Chatroom chatroom) {
 		String chatroomId = chatroom.getChatroomId();

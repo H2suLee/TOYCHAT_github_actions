@@ -1,6 +1,7 @@
 package com.toychat.prj.handler;
 
 import java.io.IOException;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -56,7 +57,7 @@ public class WebSocketChatHandler extends TextWebSocketHandler {
 	// 소켓 연결 확인
 	@Override
 	public void afterConnectionEstablished(WebSocketSession session) throws Exception {
-		System.out.println("===================================================================== afterConnectionEstablished");
+		System.out.println("===================================================================== afterConnectionEstablished : " + session);
 		sessions.add(session);
 		sessionManager.addSession("chat", session);
 	}
@@ -89,8 +90,10 @@ public class WebSocketChatHandler extends TextWebSocketHandler {
 		}
 		Set<WebSocketSession> chatRoomSession = chatRoomSessionMap.get(chatRoomId);
 
-		// sessions 에 넘어온 session 을 담고,
+		// sessions 에 넘어온 session 을 담고, closed session 정리
 		chatRoomSession.add(session);
+		removeClosedSession(chatRoomSession);
+
 
 		// 입장시
 		if (chatMessageDto.getType().equals("ENTER")) {
@@ -102,11 +105,13 @@ public class WebSocketChatHandler extends TextWebSocketHandler {
 		if(chatMessageDto.getType().equals("END")) {
 			closeChat(session);
 		}
-
-		// 이 부분은 왜 있는거지?
-		if (chatRoomSession.size() >= 3) {
-			removeClosedSession(chatRoomSession);
+		
+		// 복구시 밑에 로직을 안탐
+		if(chatMessageDto.getType().equals("REJOIN")) {
+			return;
 		}
+		
+		System.out.println("chatroomsession size : " + chatRoomSession.size());
 		sendMessageToChatRoom(chatMessageDto, chatRoomSession);
 
 		// Redis 저장
@@ -172,7 +177,7 @@ public class WebSocketChatHandler extends TextWebSocketHandler {
 	}
 
 	public <T> void sendMessage(WebSocketSession session, T message) {
-		System.out.println("===================================================================== sendMessage");
+		System.out.println("===================================================================== sendMessage : " + session );
 		try {
 	        if (session != null && session.isOpen()) {  // 세션이 열려 있는지 확인
 	            session.sendMessage(new TextMessage(mapper.writeValueAsString(message)));
@@ -190,8 +195,10 @@ public class WebSocketChatHandler extends TextWebSocketHandler {
 		
 		// 관리자 상담 대기리스트 동기화
 		Set<WebSocketSession> adminSessions = sessionManager.getSessions("admin");
-
-		List<ChatroomInfo> list = chatroomService.getLiveChatWaitingList(new HashMap<>());
+		HashMap<String,Object> searchMap = new HashMap<String, Object>();
+		List<String> searchStatus =  Arrays.asList("01", "02");
+    	searchMap.put("searchStatus", searchStatus);
+		List<ChatroomInfo> list = chatroomService.getChatRooms(searchMap);
 		String jsonList = null;
 		try {
 			jsonList = mapper.writeValueAsString(list);

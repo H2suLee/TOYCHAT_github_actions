@@ -7,7 +7,6 @@ import org.springframework.web.socket.config.annotation.WebSocketHandlerRegistry
 
 import com.toychat.prj.handler.WebSocketAdminHandler;
 import com.toychat.prj.handler.WebSocketChatHandler;
-import com.toychat.prj.handler.WebSocketSessionManager;
 
 import lombok.RequiredArgsConstructor;
 
