@@ -19,5 +19,6 @@ public class Chat {
     private String content;
     private String credt;
     private String type; // ENTER, TALK
+    private String role;
 
 }

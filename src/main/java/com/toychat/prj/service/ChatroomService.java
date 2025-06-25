@@ -16,6 +16,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.mongodb.core.MongoTemplate;
 import org.springframework.data.mongodb.core.aggregation.Aggregation;
+import org.springframework.data.mongodb.core.aggregation.AggregationExpression;
 import org.springframework.data.mongodb.core.aggregation.AggregationResults;
 import org.springframework.data.mongodb.core.aggregation.ArrayOperators;
 import org.springframework.data.mongodb.core.aggregation.ConditionalOperators;
@@ -108,7 +109,7 @@ public class ChatroomService {
 		// projection
 		ProjectionOperation addParticipantsSizeProjection = project().and("_id").as("_id")
 				.and(ArrayOperators.ArrayElemAt.arrayOf("participants").elementAt(0)).as("usr")
-				.and(ArrayOperators.ArrayElemAt.arrayOf("participants").elementAt(1)).as("adm")
+				.and("participants").as("adm")
 				.and("status").as("status")
 				.and("credt").as("credt")
 				.and(ArrayOperators.Size
@@ -151,6 +152,7 @@ public class ChatroomService {
 		AggregationResults<ChatroomInfo> results = mongoTemplate.aggregate(aggregation, "chatrooms",ChatroomInfo.class);
 		list = results.getMappedResults();
 
+		// mongo aggregation으로 힘든거 java로 재가공 : redis 마지막 메시지 매핑하기, adm 가공
 		list = getRedisLastMessageMapped(list);
 
 		return list;
@@ -160,12 +162,21 @@ public class ChatroomService {
 		Chat chatMessageDto = null;
         for (ChatroomInfo room : list) {
 		    String rid = room.getChatroomId();
+		    
+		    // redis 마지막 메시지 매핑하기
 		    if (!"03".equals(room.getStatus())) {
 		    	chatMessageDto = (Chat) redisTemplate.opsForList().index("chat_" + rid, -1);
 		    	if(chatMessageDto != null) {
 		    		room.setLastContent(chatMessageDto.getContent());
 		    		room.setLastCredt(chatMessageDto.getCredt());
 		    	}
+		    }
+		    
+		    // adm 가공
+		    List<Participant> participants = room.getAdm();
+		    if(participants != null && participants.size() > 1) {
+		    	List<Participant> admList = participants.subList(1, participants.size());
+		    	room.setAdm(admList);
 		    }
 		} 
          

@@ -115,7 +115,9 @@ public class WebSocketChatHandler extends TextWebSocketHandler {
 		sendMessageToChatRoom(chatMessageDto, chatRoomSession);
 
 		// Redis 저장
-		redisTemplate.opsForList().rightPush("chat_" + chatMessageDto.getChatroomId(), chatMessageDto);
+		if(!chatMessageDto.getType().equals("TYPING")) {
+			redisTemplate.opsForList().rightPush("chat_" + chatMessageDto.getChatroomId(), chatMessageDto);
+		}
 	}
 
 	private void addParticipant(Chat chatMessageDto) {
