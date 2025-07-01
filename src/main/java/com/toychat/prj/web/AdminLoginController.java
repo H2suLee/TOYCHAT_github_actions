@@ -63,7 +63,7 @@ public class AdminLoginController {
     	System.out.println(user.toString());
         User existingUser = userService.findByUserId(user.getId());
         if (existingUser != null) {
-            throw new RuntimeException("User already exists");
+            throw new RuntimeException("User already exists : " + existingUser.toString());
         }
         user.setPw(passwordEncoder.encode(user.getPw())); // 비밀번호 암호화
         userRepository.save(user);

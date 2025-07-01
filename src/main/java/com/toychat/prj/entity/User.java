@@ -18,7 +18,7 @@ public class User {
     
     
 	public User(String id, String nick, String pw, String role, List<String> chatrooms, String credt, String upddt,
-			String jwt) {
+			String jwt, String name, String oauthId, String oauthType) {
 		super();
 		this.id = id;
 		this.nick = nick;
@@ -28,6 +28,9 @@ public class User {
 		this.credt = credt;
 		this.upddt = upddt;
 		this.jwt = jwt;
+		this.name = name;
+		this.oauthId = oauthId;
+		this.oauthType = oauthType;
 	}
 
 
@@ -40,5 +43,9 @@ public class User {
     private String credt;
     private String upddt;
     private String jwt;
+    private String name;
+    private String oauthId;
+    private String oauthType;
+    
 
 }
