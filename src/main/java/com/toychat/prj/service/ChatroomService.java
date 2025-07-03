@@ -61,15 +61,12 @@ public class ChatroomService {
 	@Autowired
 	private RedisTemplate<String, Object> redisTemplate;
 
-	@Resource(name = "Util")
-    private Util util;
-	
 	// 채팅방 생성
 	public Chatroom createRoom(User user) {
 		 // roomId uuid 생성
 		 String roomId = String.valueOf(sequenceService.generateSequence(Chatroom.SEQUENCE_NAME));
 		 // credt YYYY-MM-DD HH24:NN:DD 생성
-        String credt = util.getNowDttm();
+        String credt = Util.getNowDttm();
 
         // Chatroom build
 	     Chatroom room = Chatroom.builder()
@@ -191,7 +188,7 @@ public class ChatroomService {
 
 	// 채팅방 관리 디테일 저장
 	public void saveChatManageInfo(Chatroom chatroom) {
-		String credt = util.getNowDttm();
+		String credt = Util.getNowDttm();
 		Chatroom saveVo = chatroomRepository.findById(chatroom.getChatroomId()).get();
 		saveVo.setCategory(chatroom.getCategory());
 		saveVo.setMemo(chatroom.getMemo());
@@ -204,7 +201,7 @@ public class ChatroomService {
 		Chatroom room = chatroomRepository.findById(chatroomId)
 				.orElseThrow(() -> new RuntimeException("Chatroom not found"));
 
-		String credt = util.getNowDttm();
+		String credt = Util.getNowDttm();
 		room.setUpddt(credt);
 		room.setStatus("03");
 		chatroomRepository.save(room);

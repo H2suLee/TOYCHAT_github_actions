@@ -46,9 +46,6 @@ public class WebSocketChatHandler extends TextWebSocketHandler {
 	@Autowired
 	private ChatroomService chatroomService;
 
-	@Resource(name = "Util")
-	private Util util;
-
 	private final ObjectMapper mapper = new ObjectMapper();
 	private final Set<WebSocketSession> sessions = new HashSet<>();
 	private final Map<String, Set<WebSocketSession>> chatRoomSessionMap = new HashMap<>();
@@ -72,7 +69,7 @@ public class WebSocketChatHandler extends TextWebSocketHandler {
 		Chat chatMessageDto = mapper.readValue(payload, Chat.class);
 
 		// credt put
-		String credt = util.getNowDttm();
+		String credt = Util.getNowDttm();
 		chatMessageDto.setCredt(credt);
 
 		// chatId put
