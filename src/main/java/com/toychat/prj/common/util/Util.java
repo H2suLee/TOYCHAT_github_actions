@@ -17,12 +17,13 @@ public class Util {
 		return credt;
 	}
 	
-	public static String getBaseUrl(HttpServletRequest request) {
+	public static String getRedirectBaseUrl(HttpServletRequest request) {
 	    String scheme = request.getScheme();             // http 또는 https
 	    String serverName = request.getServerName();     // 예: localhost
 	    int serverPort = request.getServerPort();        // 예: 9090
-
-	    return scheme + "://" + serverName + ":" + serverPort;
+	    String baseUrl = scheme + "://" + serverName + ":" + serverPort;
+	    
+	    return baseUrl;
 	}
 }
 

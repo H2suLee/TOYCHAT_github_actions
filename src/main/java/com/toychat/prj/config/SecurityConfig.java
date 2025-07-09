@@ -19,6 +19,8 @@ import com.toychat.prj.handler.CustomOAuth2FailureHandler;
 import com.toychat.prj.handler.CustomOAuth2SuccessHandler;
 import com.toychat.prj.service.CustomOAuth2UserService;
 
+import jakarta.servlet.http.HttpServletResponse;
+
 
 @Configuration
 @EnableWebSecurity
@@ -41,14 +43,19 @@ public class SecurityConfig {
         http
             .csrf(AbstractHttpConfigurer::disable) // CSRF 비활성화
             .authorizeHttpRequests(auth -> auth
-                .requestMatchers("/api/admin/login", "/api/admin/register", "/login/oauth2/**", "/ws/**").permitAll() // 인증 필요 없는 경로
-                .requestMatchers("/admin/**").hasRole("ADM")
+                .requestMatchers("/", "/admin", "/admin/**", "/chat/**", "/login/oauth2/**", "/api/adminLogin", "/api/adminRegister", "/index.html", "/js/**", "/css/**", "/img/**", "/favicon.ico", "/firebase-messaging-sw.js", "/ws/**", "/api/fcm/**").permitAll() // 정적 리소스 인증 필요 없는 경로
+                .requestMatchers("/api/admin/**").hasRole("ADM")
+                .requestMatchers("/api/users/**").hasRole("USR")
                 .anyRequest().authenticated() // 다른 모든 요청은 인증 필요
            		//.anyRequest().permitAll()	
             )
             .sessionManagement(session -> session
                 .sessionCreationPolicy(SessionCreationPolicy.STATELESS) // 세션 사용하지 않음
-            );
+            )
+            .formLogin(AbstractHttpConfigurer::disable)  // Form 로그인 비활성화
+            .exceptionHandling()
+            .authenticationEntryPoint((req, res, ex) -> res.sendError(HttpServletResponse.SC_UNAUTHORIZED)); // 시큐리티 인증 실패시 디폴트는 302 리턴했다가 /login 으로 리다이렉트하는데 401로 리턴하도록 하는 설정 
+        
         http.oauth2Login(oauth2 -> oauth2
         		//.authorizationEndpoint(config -> config.baseUri("/oauth2/authorization"))
         		.successHandler(customOAuth2SuccessHandler)

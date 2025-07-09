@@ -21,7 +21,7 @@ import com.toychat.prj.service.UserService;
 import jakarta.servlet.http.HttpSession;
 
 @RestController
-@RequestMapping("/api/admin")
+@RequestMapping("/api")
 public class AdminLoginController {
 	@Autowired
 	private JwtUtil jwtUtil;
@@ -41,7 +41,7 @@ public class AdminLoginController {
 	@Autowired
 	private UserService userService;
     
-	@PostMapping("/login")
+	@PostMapping("/adminLogin")
     public User authenticate(@RequestBody User user, HttpSession session) throws AuthenticationException {
 		
 		// 인증 처리
@@ -57,7 +57,7 @@ public class AdminLoginController {
         return user;
     }
 
-    @PostMapping("/register")
+    @PostMapping("/adminRegister")
     public String register(@RequestBody User user) {
     	System.out.println("Registering..");
     	System.out.println(user.toString());

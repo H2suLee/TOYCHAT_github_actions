@@ -62,8 +62,8 @@ public class WebSocketChatHandler extends TextWebSocketHandler {
 	// 소켓 통신 시 메세지의 전송을 다루는 부분
 	@Override
 	protected void handleTextMessage(WebSocketSession session, TextMessage message) throws Exception {
-		System.out.println("===================================================================== handleTextMessage");
 		String payload = message.getPayload();
+		System.out.println("===================================================================== handleTextMessage" + payload);
 
 		// 페이로드 -> chatMessageDto로 변환
 		Chat chatMessageDto = mapper.readValue(payload, Chat.class);
@@ -79,6 +79,7 @@ public class WebSocketChatHandler extends TextWebSocketHandler {
 		String chatRoomId = chatMessageDto.getChatroomId();
 
 		// 세션에 chatRoomId 저장
+		System.out.println("session is null? ::::" + (chatRoomId == null));
 		session.getAttributes().put("chatRoomId", chatRoomId);
 
 		// 메모리 상에 채팅방에 대한 세션 없으면 만들어줌
@@ -171,8 +172,20 @@ public class WebSocketChatHandler extends TextWebSocketHandler {
 	}
 
 	private void sendMessageToChatRoom(Chat chatMessageDto, Set<WebSocketSession> chatRoomSession) {
-		System.out.println("===================================================================== sendMessageToChatRoom");
-		chatRoomSession.parallelStream().forEach(sess -> sendMessage(sess, chatMessageDto));// 2
+		System.out.println("===================================================================== sendMessageToChatRoom : ");
+		chatRoomSession.parallelStream().forEach(sess -> {
+			
+			String sessionRoomId = (String) sess.getAttributes().get("chatRoomId");
+
+			if(sessionRoomId.equals(chatMessageDto.getChatroomId())) {
+			}else {
+				if("TALK".equals(chatMessageDto.getType())) {
+					chatMessageDto.setType("LIST");
+				}
+			}
+			sendMessage(sess, chatMessageDto);
+			
+		});// 2
 	}
 
 	public <T> void sendMessage(WebSocketSession session, T message) {

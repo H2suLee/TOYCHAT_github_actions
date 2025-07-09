@@ -22,9 +22,8 @@ public class CustomOAuth2FailureHandler implements AuthenticationFailureHandler{
     @Override
     public void onAuthenticationFailure(HttpServletRequest request, HttpServletResponse response,
         AuthenticationException e) throws IOException, ServletException {
-        String uri = Util.getBaseUrl(request);
+        String uri = Util.getRedirectBaseUrl(request);
         System.out.println("로그인 실패 핸들러 : " + uri);
-        uri = "http://localhost:9091"; // 로컬용
     	
 		String fullUrl = UriComponentsBuilder.fromUriString(uri + callbackPath)
 				.queryParam("error",e.getLocalizedMessage() != null?e.getLocalizedMessage():"Server Error")
