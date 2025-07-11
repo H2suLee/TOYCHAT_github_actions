@@ -40,6 +40,7 @@ public class SecurityConfig {
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
     	System.out.println("securityFilterChain");
+    	/*
         http
             .csrf(AbstractHttpConfigurer::disable) // CSRF 비활성화
             .authorizeHttpRequests(auth -> auth
@@ -47,7 +48,7 @@ public class SecurityConfig {
                 .requestMatchers("/api/admin/**").hasRole("ADM")
                 .requestMatchers("/api/users/**").hasRole("USR")
                 .anyRequest().authenticated() // 다른 모든 요청은 인증 필요
-           		//.anyRequest().permitAll()	
+           		.anyRequest().permitAll()	
             )
             .sessionManagement(session -> session
                 .sessionCreationPolicy(SessionCreationPolicy.STATELESS) // 세션 사용하지 않음
@@ -67,6 +68,7 @@ public class SecurityConfig {
         // JWT 필터를 UsernamePasswordAuthenticationFilter 전에 추가
         http.addFilterBefore(jwtRequestFilter, UsernamePasswordAuthenticationFilter.class);
 
+    	 * */
         return http.build();
     }
 
