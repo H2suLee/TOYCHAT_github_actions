@@ -104,7 +104,7 @@ public class WebSocketChatHandler extends TextWebSocketHandler {
 			closeChat(session);
 		}
 		
-		// 복구시 밑에 로직을 안탐
+		// 복구시 밑에 로직을 안탐, 소켓 연결만이 목적..
 		if(chatMessageDto.getType().equals("REJOIN")) {
 			return;
 		}
@@ -181,6 +181,8 @@ public class WebSocketChatHandler extends TextWebSocketHandler {
 			}else {
 				if("TALK".equals(chatMessageDto.getType())) {
 					chatMessageDto.setType("LIST");
+				}else if("TYPING".equals(chatMessageDto.getType())|| "STOP".equals(chatMessageDto.getType())) {
+					return;
 				}
 			}
 			sendMessage(sess, chatMessageDto);
