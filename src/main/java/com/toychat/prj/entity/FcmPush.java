@@ -16,10 +16,13 @@ public class FcmPush {
 	@Id
 	private String seq;
 	private String target;
+	private String type;
 	private String title;
 	private String cont;
 	private String chkYn;
 	private String chkDt;
-	
+	private String credt;
 	private String token;
+	private String chatroomId;
+	private String sender;
 }

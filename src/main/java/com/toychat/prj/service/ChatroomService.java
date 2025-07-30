@@ -19,6 +19,7 @@ import org.springframework.data.mongodb.core.aggregation.Aggregation;
 import org.springframework.data.mongodb.core.aggregation.AggregationExpression;
 import org.springframework.data.mongodb.core.aggregation.AggregationResults;
 import org.springframework.data.mongodb.core.aggregation.ArrayOperators;
+import org.springframework.data.mongodb.core.aggregation.ComparisonOperators;
 import org.springframework.data.mongodb.core.aggregation.ConditionalOperators;
 import org.springframework.data.mongodb.core.aggregation.GroupOperation;
 import org.springframework.data.mongodb.core.aggregation.LookupOperation;
@@ -36,12 +37,15 @@ import com.toychat.prj.common.util.Util;
 import com.toychat.prj.entity.Chat;
 import com.toychat.prj.entity.Chatroom;
 import com.toychat.prj.entity.ChatroomInfo;
+import com.toychat.prj.entity.FcmPush;
 import com.toychat.prj.entity.Participant;
 import com.toychat.prj.entity.User;
 import com.toychat.prj.repository.ChatroomRepository;
 
 import jakarta.annotation.Resource;
+import lombok.extern.slf4j.Slf4j;
 
+@Slf4j
 @Service
 public class ChatroomService {
 
@@ -60,6 +64,9 @@ public class ChatroomService {
 	
 	@Autowired
 	private RedisTemplate<String, Object> redisTemplate;
+	
+	@Autowired
+	private FcmService fcmService;
 
 	// 채팅방 생성
 	public Chatroom createRoom(User user) {
@@ -107,7 +114,13 @@ public class ChatroomService {
 		// projection
 		ProjectionOperation addParticipantsSizeProjection = project().and("_id").as("_id")
 				.and(ArrayOperators.ArrayElemAt.arrayOf("participants").elementAt(0)).as("usr")
-				.and("participants").as("adm")
+				.and((ConditionalOperators.when(
+				        ComparisonOperators.Gte.valueOf(
+				                ArrayOperators.Size.lengthOfArray("participants")
+				            ).greaterThanEqualToValue(2)
+				        )
+						.thenValueOf("participants")
+				        .otherwise(new ArrayList<>()))).as("adm")
 				.and("status").as("status")
 				.and("credt").as("credt")
 				.and(ArrayOperators.Size
@@ -152,7 +165,6 @@ public class ChatroomService {
 
 		// mongo aggregation으로 힘든거 java로 재가공 : redis 마지막 메시지 매핑하기, adm 가공
 		list = getRedisLastMessageMapped(list);
-
 		return list;
 	}
 	
@@ -221,11 +233,30 @@ public class ChatroomService {
 		
 		List<Participant> participants = new ArrayList<Participant>();
 		
+		
 		if (room.getParticipants() != null) {
 			participants = room.getParticipants();
 			status = "02"; // 진행중
+		}else {
+			try {
+				// firebase type01 알람
+				FcmPush msg = FcmPush.builder()
+						.type("type01")
+						.title("[실시간 채팅 지원 요청]")
+						.cont(chatMessageDto.getContent())
+						.chatroomId(chatMessageDto.getChatroomId())
+						.sender(chatMessageDto.getId())
+						.build();
+				
+				fcmService.sendNotification(msg);
+			} catch (Exception e) {
+				e.printStackTrace();
+				log.debug("알림 실패");
+			}
+			
 		}
-
+		
+		
 		participants.add(participant);
 		room.setParticipants(participants);
 

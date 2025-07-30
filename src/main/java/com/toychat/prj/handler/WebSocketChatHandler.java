@@ -22,8 +22,10 @@ import com.toychat.prj.common.sequence.SequenceService;
 import com.toychat.prj.common.util.Util;
 import com.toychat.prj.entity.Chat;
 import com.toychat.prj.entity.ChatroomInfo;
+import com.toychat.prj.entity.FcmPush;
 import com.toychat.prj.repository.ChatRepository;
 import com.toychat.prj.service.ChatroomService;
+import com.toychat.prj.service.FcmService;
 
 import jakarta.annotation.Resource;
 import lombok.RequiredArgsConstructor;
@@ -45,7 +47,10 @@ public class WebSocketChatHandler extends TextWebSocketHandler {
 
 	@Autowired
 	private ChatroomService chatroomService;
-
+	
+	@Autowired
+	private FcmService fcmService;
+	
 	private final ObjectMapper mapper = new ObjectMapper();
 	private final Set<WebSocketSession> sessions = new HashSet<>();
 	private final Map<String, Set<WebSocketSession>> chatRoomSessionMap = new HashMap<>();
@@ -91,7 +96,7 @@ public class WebSocketChatHandler extends TextWebSocketHandler {
 		chatRoomSession.add(session);
 		removeClosedSession(chatRoomSession);
 
-
+		System.out.println("size: " + chatRoomSession.size());
 		// 입장시
 		if (chatMessageDto.getType().equals("ENTER")) {
 			// 챗방에 participant 추가
@@ -176,6 +181,8 @@ public class WebSocketChatHandler extends TextWebSocketHandler {
 			String sessionRoomId = (String) sess.getAttributes().get("chatRoomId");
 
 			if(sessionRoomId.equals(chatMessageDto.getChatroomId())) {
+				if("TALK".equals(chatMessageDto.getType())) {
+				}
 			}else {
 				if("TALK".equals(chatMessageDto.getType())) {
 					chatMessageDto.setType("LIST");
@@ -186,6 +193,34 @@ public class WebSocketChatHandler extends TextWebSocketHandler {
 			sendMessage(sess, chatMessageDto);
 			
 		});// 2
+		
+		// fcm push
+		boolean result = chatRoomSession.parallelStream().anyMatch(sess -> {
+			String sessionRoomId = (String) sess.getAttributes().get("chatRoomId");
+			if(sessionRoomId.equals(chatMessageDto.getChatroomId())) {
+				if("TALK".equals(chatMessageDto.getType())) {
+					// chat type talk 이면
+					System.out.println(sessionRoomId + " fireBase send 필요");
+					// firebase type01 알람
+					String title = "[채팅 알람]";
+					String cont = chatMessageDto.getContent();
+					String chatroomId = chatMessageDto.getChatroomId();
+					String sender = chatMessageDto.getId();
+					
+					FcmPush msg = FcmPush.builder()
+							.type("type00")
+							.cont(chatMessageDto.getNick() + ": " + cont)
+							.title(title)
+							.sender(sender)
+							.chatroomId(chatroomId)
+							.build();
+			    	
+			    	fcmService.sendNotification(msg);
+			    	return true;
+				}
+			}
+			return false;
+		});
 	}
 
 	public <T> void sendMessage(WebSocketSession session, T message) {
