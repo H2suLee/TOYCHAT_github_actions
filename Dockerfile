@@ -1,14 +1,23 @@
-# 베이스 이미지: Java 17 슬림 이미지
+# 1단계: Maven 빌드용 이미지
+FROM maven:3.8.6-openjdk-17 AS builder
+
+WORKDIR /build
+
+# 소스 복사
+COPY pom.xml .
+COPY src ./src
+
+# 패키지 빌드 (테스트 생략)
+RUN mvn clean package -DskipTests
+
+# 2단계: 실행용 슬림 이미지
 FROM openjdk:17-jdk-slim
 
-# 앱 실행 경로
-WORKDIR /api
+WORKDIR /app
 
-# target 폴더에서 JAR 복사 (JAR 이름은 정확히 써야 함)
-COPY target/toychatuser-0.0.1-SNAPSHOT.jar app.jar
+# 1단계에서 빌드한 JAR 복사
+COPY --from=builder /build/target/toychatuser-0.0.1-SNAPSHOT.jar app.jar
 
-# 실행 포트 (Koyeb에서는 내부적으로 알아서 라우팅함)
 EXPOSE 8080
 
-# 앱 실행 명령어
 ENTRYPOINT ["java", "-jar", "app.jar"]
