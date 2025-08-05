@@ -2,7 +2,7 @@
 FROM openjdk:17-jdk-slim
 
 # 앱 실행 경로
-WORKDIR /app
+WORKDIR /api
 
 # target 폴더에서 JAR 복사 (JAR 이름은 정확히 써야 함)
 COPY target/toychatuser-0.0.1-SNAPSHOT.jar app.jar
