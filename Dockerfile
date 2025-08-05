@@ -1,5 +1,5 @@
 # 1단계: Maven 빌드용 이미지
-FROM maven:3.8.6-openjdk-17 AS builder
+FROM maven:3.8.6-eclipse-temurin-17 AS builder
 
 WORKDIR /build
 
