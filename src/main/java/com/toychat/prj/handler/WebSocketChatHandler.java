@@ -239,7 +239,7 @@ public class WebSocketChatHandler extends TextWebSocketHandler {
 	// 실시간 상담 대기 리스트
 	private void broadcastActive01Chat() {
 		System.out.println("===================================================================== broadcastActive01Chat");
-		
+		log.debug("===================================================================== broadcastActive01Chat");
 		// 관리자 상담 대기리스트 동기화
 		Set<WebSocketSession> adminSessions = sessionManager.getSessions("admin");
 		HashMap<String,Object> searchMap = new HashMap<String, Object>();
