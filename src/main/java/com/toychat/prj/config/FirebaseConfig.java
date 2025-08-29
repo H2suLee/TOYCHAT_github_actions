@@ -14,7 +14,10 @@ import org.springframework.context.annotation.Configuration;
 import com.google.auth.oauth2.GoogleCredentials;
 import com.google.firebase.FirebaseApp;
 import com.google.firebase.FirebaseOptions;
+import com.toychat.prj.handler.WebSocketChatHandler;
 
+import lombok.extern.slf4j.Slf4j;
+@Slf4j
 @Configuration
 public class FirebaseConfig {
 	
@@ -37,7 +40,7 @@ public class FirebaseConfig {
                 .build();
 
             FirebaseApp.initializeApp(options);
-            System.out.println("Firebase Admin SDK initialized");
+            log.debug("Firebase Admin SDK initialized");
         } catch (IOException e) {
             e.printStackTrace();
         }
