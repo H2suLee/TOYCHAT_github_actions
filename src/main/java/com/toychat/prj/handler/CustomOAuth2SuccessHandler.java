@@ -2,9 +2,11 @@ package com.toychat.prj.handler;
 
 import java.io.IOException;
 import java.util.Map;
+import java.util.concurrent.TimeUnit;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.oauth2.core.user.DefaultOAuth2User;
 import org.springframework.security.web.authentication.AuthenticationSuccessHandler;
@@ -15,6 +17,7 @@ import com.toychat.prj.common.jwt.JwtUtil;
 import com.toychat.prj.common.util.Util;
 import com.toychat.prj.entity.CustomOAuth2User;
 import com.toychat.prj.entity.User;
+import com.toychat.prj.entity.UserDetailsImpl;
 
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -29,21 +32,35 @@ public class CustomOAuth2SuccessHandler implements AuthenticationSuccessHandler 
 	@Value("${spring.security.oauth2.callback-path}")
     private String callbackPath;
 	
+    @Value("${jwt.refreshExpiration}")
+    private long jwtRefreshExpirationSeconds;
+    
+	@Autowired
+	private RedisTemplate<String, Object> redisTemplate;
 	
     @Override
     public void onAuthenticationSuccess(HttpServletRequest request, HttpServletResponse response,
         Authentication authentication) throws IOException, ServletException {
         String uri = Util.getRedirectBaseUrl(request);
         //uri = "http://localhost:9091"; //9091에서 프론트 돌릴때만
-        System.out.println("로그인 성공 핸들러 : " + uri);
         
         String fullUrl = "";
         CustomOAuth2User oauth2User = (CustomOAuth2User)authentication.getPrincipal();
         if (isUser(oauth2User)) {
-        	System.out.println("로그인 성공");
         	User user = oauth2User.getUser();
-        	String jwtToken = jwtUtil.generateToken(user.getId());
-        	System.out.println("token : " + jwtToken);
+    		// jwt refresh token 관리
+    		String refreshToken = jwtUtil.generateRefeshToken(user.getId());
+    		redisTemplate.opsForValue().set(
+    			    "RT:" + user.getId(),
+    			    refreshToken,
+    			    jwtRefreshExpirationSeconds,   // TTL 값
+    			    TimeUnit.SECONDS               // TTL 단위
+    			);
+        	
+    		// https 쿠키 세팅
+    		jwtUtil.addRefreshTokenCookie(response, refreshToken);
+    		
+        	String jwtToken = jwtUtil.generateAccessToken(user.getId());
         	fullUrl = UriComponentsBuilder.fromUriString(uri + callbackPath)
                     .queryParam("id",user.getId())
                     .queryParam("nick",user.getNick())
