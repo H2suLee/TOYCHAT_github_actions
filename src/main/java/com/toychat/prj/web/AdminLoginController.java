@@ -1,12 +1,17 @@
 package com.toychat.prj.web;
 
+import java.util.concurrent.TimeUnit;
+
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.AuthenticationException;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.web.bind.annotation.CookieValue;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -18,6 +23,7 @@ import com.toychat.prj.entity.UserDetailsImpl;
 import com.toychat.prj.repository.UserRepository;
 import com.toychat.prj.service.UserService;
 
+import jakarta.servlet.http.HttpServletResponse;
 import jakarta.servlet.http.HttpSession;
 
 @RestController
@@ -40,17 +46,35 @@ public class AdminLoginController {
 
 	@Autowired
 	private UserService userService;
+	
+    @Value("${jwt.refreshExpiration}")
+    private long jwtRefreshExpirationSeconds;
+    
+	@Autowired
+	private RedisTemplate<String, Object> redisTemplate;
     
 	@PostMapping("/adminLogin")
-    public User authenticate(@RequestBody User user, HttpSession session) throws AuthenticationException {
+    public User authenticate(@RequestBody User user, HttpServletResponse response) throws AuthenticationException {
 		
 		// 인증 처리
 		Authentication authentication = authenticationManager.authenticate(
 				new UsernamePasswordAuthenticationToken(user.getId(), user.getPw()));
 		
-		// 로그인정보 리턴
+		// jwt refresh token 관리
 		UserDetailsImpl userDetails = (UserDetailsImpl) authentication.getPrincipal();
-		String jwtToken = jwtUtil.generateToken(userDetails.getUsername());
+		String refreshToken = jwtUtil.generateRefeshToken(userDetails.getUsername());
+		redisTemplate.opsForValue().set(
+			    "RT:" + userDetails.getUsername(),
+			    refreshToken,
+			    jwtRefreshExpirationSeconds,   // TTL 값
+			    TimeUnit.SECONDS               // TTL 단위
+			);
+
+		// https 쿠키 세팅
+		jwtUtil.addRefreshTokenCookie(response, refreshToken);
+		
+		// 로그인정보 리턴
+		String jwtToken = jwtUtil.generateAccessToken(userDetails.getUsername());
 		user.setNick(userDetails.getUser().getNick());
 		user.setJwt(jwtToken);
 		System.out.println("login complete");
@@ -69,4 +93,22 @@ public class AdminLoginController {
         userRepository.save(user);
         return "User registered successfully";
     }	
+
+    @PostMapping("/refreshJwt")
+    public User refreshJwt(@CookieValue(name = "refreshToken", required = false) String refreshToken) {
+    	User user = new User();
+    	 if (refreshToken != null) {
+    		 String username = jwtUtil.extractUsername(refreshToken);
+    		 String stored = (String) redisTemplate.opsForValue().get("RT:" + username);
+    		 if (stored == null || !stored.equals(refreshToken)) {
+    			 throw new RuntimeException("Invalid or expired refresh token");
+    		 }
+
+    		 // 새 Access Token 발급
+    		 String newAccessToken = jwtUtil.generateAccessToken(username);
+    		 user.setJwt(newAccessToken);
+    	 }
+
+        return user;
+    }
 }
