@@ -31,20 +31,13 @@ public class FcmController {
 		} catch (Exception e) {
 			e.printStackTrace();
 		}
-    	return "User registered successfully";
+    	return "Fcm key registered successfully";
     }
 
     @PostMapping("/deleteKey")
     public String deleteKey(@RequestBody FcmKey fcmKey) {
-    	System.out.println("delete Key");
-    	try {
-    		fcmService.deleteFcmKey(fcmKey);
-    	} catch (DuplicateKeyException e) {
-    		System.out.println("duplicate key");
-    	} catch (Exception e) {
-    		e.printStackTrace();
-    	}
-    	return "User registered successfully";
+    	fcmService.deleteFcmKey(fcmKey);
+    	return "Fcm key deleted successfully";
     }
 
     @PostMapping("/listFcmPush")

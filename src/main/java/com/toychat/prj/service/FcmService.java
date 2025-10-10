@@ -163,14 +163,14 @@ public class FcmService {
 
 	private void removeTokenbyId(FcmKey fcmKey) {
 		Query query = new Query();
-		query.addCriteria(Criteria.where("token").is(fcmKey.getToken()).and("userId").ne(fcmKey.getUserId()));
+		query.addCriteria(Criteria.where("userId").is(fcmKey.getUserId()).and("token").is(fcmKey.getToken()));
 		mongoTemplate.remove(query, FcmKey.class);
 	}
 
 
 	public void deleteFcmKey(FcmKey fcmKey) {
 		 Query query = new Query();
-		 query.addCriteria(Criteria.where("userId").is(fcmKey.getUserId()).and("token").is(fcmKey.getToken()));
+		 query.addCriteria(Criteria.where("token").is(fcmKey.getToken()));
 		 mongoTemplate.remove(query, FcmKey.class);
 	}
 
