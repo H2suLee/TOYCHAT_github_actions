@@ -45,7 +45,7 @@ public class CustomOAuth2SuccessHandler implements AuthenticationSuccessHandler 
     public void onAuthenticationSuccess(HttpServletRequest request, HttpServletResponse response,
         Authentication authentication) throws IOException, ServletException {
         String uri = Util.getRedirectBaseUrl(request);
-        uri = "http://localhost:9091"; //9091에서 프론트 돌릴때만
+        //uri = "http://localhost:9091"; //9091에서 프론트 돌릴때만
         
         String fullUrl = "";
         CustomOAuth2User oauth2User = (CustomOAuth2User)authentication.getPrincipal();
