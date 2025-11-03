@@ -45,7 +45,7 @@ jobs:
           cp -r ./* $TARGET_DIR/
 
       - name: Deploy dev
-        if: $BRANCH_NAME == 'dev'
+        if: github.ref == 'refs/heads/dev'
         run: |
           cd $TARGET_DIR
           mvn clean package -DskipTests
@@ -54,7 +54,7 @@ jobs:
           sudo systemctl restart $SERVICE_NAME          
 
       - name: Deploy main
-        if: $BRANCH_NAME == 'main'
+        if: github.ref == 'refs/heads/main'
         env:
          IMAGE_NAME: toychat-main:latest
          COMPOSE: $BASE_PATH/$BRANCH_NAME/docker/docker-compose.yml 
