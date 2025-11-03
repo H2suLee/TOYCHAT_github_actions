@@ -1,4 +1,4 @@
-name: Auto Deploy on Self-Hosted Runner
+name: Branch-based Deployment
 
 on:
   push:
@@ -12,29 +12,59 @@ on:
 jobs:
   build-and-deploy:
     runs-on: self-hosted
+    env:
+      BASE_PATH: /srv/toychat
+
     steps:
       - name: Checkout source
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
-      - name: Move source to deployment path
+      - name: Set variables
+        id: set-vars
         run: |
-          echo "Moving source to /srv/toychat/main/app"
-          sudo rm -rf /srv/toychat/main/app/*
-          sudo mkdir -p /srv/toychat/main/app
-          sudo cp -r ./* /srv/toychat/main/app/
-          sudo chown -R $(whoami):$(whoami) /srv/toychat/main/app
+          BRANCH_NAME="${GITHUB_REF##*/}"
+          echo "Current branch: $BRANCH_NAME"
+
+          if [[ "$BRANCH_NAME" == "main" ]]; then
+            echo "TARGET_DIR=$BASE_PATH/main/app" >> $GITHUB_ENV
+            echo "SERVICE_NAME=main" >> $GITHUB_ENV
+          else
+            echo "TARGET_DIR=$BASE_PATH/dev/app" >> $GITHUB_ENV
+            echo "SERVICE_NAME=dev" >> $GITHUB_ENV
+          fi
+
+      - name: Clean old files
+        run: |
+          echo "Cleaning $TARGET_DIR"
+          sudo rm -rf $TARGET_DIR/*
+          sudo mkdir -p $TARGET_DIR
+          sudo chown -R $(whoami):$(whoami) $TARGET_DIR
+
+      - name: Copy source
+        run: |
+          echo "Copying source to $TARGET_DIR"
+          cp -r ./* $TARGET_DIR/
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
 
       - name: Build backend
-        working-directory: /srv/toychat/main/app
+        working-directory: $TARGET_DIR
         run: mvn clean package -DskipTests
 
-      - name: Deploy (systemd restart)
+      - name: Restart service
         run: |
-          echo "🚀 Restarting service for branch: ${{ github.ref_name }}"
-          if [ "${{ github.ref_name }}" = "dev" ]; then
-            sudo systemctl restart dev
-          elif [ "${{ github.ref_name }}" = "main" ]; then
-            sudo systemctl restart main
-          fi
+          echo "Restarting service $SERVICE_NAME"
+          sudo systemctl restart $SERVICE_NAME
+
+      - name: PR build check
+        if: github.event_name == 'pull_request' && github.base_ref == 'main'
+        run: |
+          echo "Pull Request build for main branch - no deployment"
+          cd $TARGET_DIR
+          mvn clean package -DskipTests
