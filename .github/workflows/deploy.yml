@@ -26,14 +26,11 @@ jobs:
         run: |
           BRANCH_NAME="${GITHUB_REF##*/}"
           echo "Current branch: $BRANCH_NAME"
+          echo "BRANCH_NAME=$BRANCH_NAME" >> $GITHUB_ENV
+          echo "TARGET_DIR=//srv/toychat/$BRANCH_NAME/app"  >> $GITHUB_ENV
+          echo "SERVICE_NAME=$BRANCH_NAME" >> $GITHUB_ENV
+          echo "BRANCH_NAME=$BRANCH_NAME" >> $GITHUB_ENV
 
-          if [[ "$BRANCH_NAME" == "main" ]]; then
-            echo "TARGET_DIR=$BASE_PATH/main/app" >> $GITHUB_ENV
-            echo "SERVICE_NAME=main" >> $GITHUB_ENV
-          else
-            echo "TARGET_DIR=$BASE_PATH/dev/app" >> $GITHUB_ENV
-            echo "SERVICE_NAME=dev" >> $GITHUB_ENV
-          fi
 
       - name: Clean old files
         run: |
@@ -57,7 +54,7 @@ jobs:
         run: |
           cd $TARGET_DIR
           mvn clean package -DskipTests
-          cp target/*.jar $BASE_PATH/${BRANCH_NAME}/deploy/app.jar
+          cp target/*.jar $BASE_PATH/$BRANCH_NAME/deploy/app.jar
 
       - name: Restart service
         run: |
