@@ -29,6 +29,7 @@ jobs:
           echo "BRANCH_NAME=$BRANCH_NAME" >> $GITHUB_ENV
           echo "TARGET_DIR=$BASE_PATH/$BRANCH_NAME/app"  >> $GITHUB_ENV
           echo "DEPLOY_DIR=$BASE_PATH/$BRANCH_NAME/deploy"  >> $GITHUB_ENV
+          echo "COMPOSE=$BASE_PATH/$BRANCH_NAME/docker/docker-compose.yml"  >> $GITHUB_ENV
           echo "SERVICE_NAME=$BRANCH_NAME" >> $GITHUB_ENV
 
 
@@ -99,30 +100,41 @@ jobs:
       - name: Deploy main
         if: github.ref == 'refs/heads/main'
         env:
-         IMAGE_BASE: toychat-main
-         COMPOSE: ${{ env.BASE_PATH }}/${{ env.BRANCH_NAME }}/docker/docker-compose.yml 
+         IMAGE_NAME: toychat-main:latest
+         LAST_IMAGE_NAME: toychat-main:latest
         run: |
           cd $TARGET_DIR
           
+          docker image inspect $IMAGE_NAME > /dev/null 2>&1 && docker tag $IMAGE_NAME $LAST_IMAGE_NAME || echo "No existing image to backup"
+          
           docker compose -f $COMPOSE down
           
-          docker build -t $IMAGE_BASE:latest .
-          docker build -t $IMAGE_BASE:$TAG .
+          docker build -t $IMAGE_NAME .
+          docker build -t toychat-main:$TAG .
           
           docker compose -f $COMPOSE up -d --build
-          echo "Restarting service $SERVICE_NAME ..."
+          echo "Restarting service $SERVICE_NAME"
 
       - name: Health check main
         if: github.ref == 'refs/heads/main'
+        env:
+         IMAGE_NAME: toychat-main:latest
+         LAST_IMAGE_NAME: toychat-main:latest        
         run: |
-          echo "Running health check for main..."
-          sleep 10
-          if ! curl -fs http://localhost:9090/actuator/health; then
-            echo "Main health check failed. Rolling back..."
-            exit 1
-          else
-            echo "Main service healthy."
-          fi
+          echo "Running health check on port 9090..."
+          for i in {1..10}; do
+            if ! curl -fs http://localhost:9090/actuator/health; then
+              echo "Health check failed"
+              echo "Rolling back.."
+              docker compose -f $COMPOSE down
+              docker tag $LAST_IMAGE_NAME toychat-main:latest
+              docker compose -f $COMPOSE up -d
+              echo "Rollback completed $SERVICE_NAME"
+              exit 1
+            fi  
+            echo "Waiting for service..."
+            sleep 5
+          done
           
       - name: PR build check
         if: github.event_name == 'pull_request' && github.base_ref == 'main'
