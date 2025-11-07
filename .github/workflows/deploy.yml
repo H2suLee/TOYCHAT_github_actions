@@ -125,7 +125,6 @@ jobs:
 
           docker compose -f $COMPOSE up -d --build
           echo "Restarting service $SERVICE_NAME"
-          docker image prune -f
 
       - name: Health check main
         if: github.ref == 'refs/heads/main'
@@ -134,28 +133,40 @@ jobs:
          LAST_IMAGE_NAME: toychat-main:last        
         run: |
           echo "Running health check on port 9090..."
-          for i in {1..10}; do
-            if ! curl -fs http://localhost:9090/actuator/health; then
-              echo "Health check failed"
-              echo "Rolling back.."
-              docker compose -f $COMPOSE down
-              docker tag $LAST_IMAGE_NAME toychat-main:latest
-              docker compose -f $COMPOSE up -d
-              echo "Rollback completed $SERVICE_NAME"
-              docker image prune -f
+          trap 'docker image prune -af' EXIT 
 
-              exit 1
+          MAX_RETRIES=12 
+          RETRY_INTERVAL=5        # 5초 간격
+          SUCCESS=0
+          
+          for i in $(seq 1 $MAX_RETRIES); do
+            STATUS=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:9090/actuator/health || echo "000")
+            if [ "$STATUS" -eq 200 ]; then
+              echo "Health check passed!"
+              SUCCESS=1
+              break
             fi  
-            echo "Waiting for service..."
-            sleep 5
+            echo "Waiting for service...($i/$MAX_RETRIES)"
+            sleep $RETRY_INTERVAL
           done
 
-      - name: Cleanup main
-        if: github.ref == 'refs/heads/main'
-        run: |
-          echo "Cleaning old images"
-
-          docker system prune -f
+          if [ "$SUCCESS" -ne 1 ]; then
+            echo "Health check failed after $((MAX_RETRIES*RETRY_INTERVAL)) seconds"
+            echo "===== CONTAINER LOGS START ====="
+            CONTAINERS=$(docker compose -f $COMPOSE ps -q)
+            for c in $CONTAINERS; do
+              echo "--- Logs for container $c ---"
+              docker logs --tail 100 $c
+            done
+            echo "===== CONTAINER LOGS END ====="
+            
+            echo "Rolling back to previous image..."
+            docker compose -f $COMPOSE down
+            docker tag $LAST_IMAGE_NAME $IMAGE_NAME
+            docker compose -f $COMPOSE up -d
+            echo "Rollback completed for $SERVICE_NAME"
+            exit 1
+          fi
                     
       - name: PR build check
         if: github.event_name == 'pull_request' && github.base_ref == 'main'
