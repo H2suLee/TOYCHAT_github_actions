@@ -3,13 +3,10 @@ FROM maven:3.8.6-eclipse-temurin-17 AS builder
 
 WORKDIR /build
 
-# 소스 복사
-COPY pom.xml .
+COPY pom.xml ./
+RUN mvn dependency:go-offline -B
 COPY src ./src
-
-# 패키지 빌드 (테스트 생략)
 RUN mvn clean package -DskipTests
-
 
 # 2단계: 실행용 슬림 이미지
 FROM openjdk:17.0.1-jdk-slim
