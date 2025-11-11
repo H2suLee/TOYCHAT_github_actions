@@ -122,14 +122,13 @@ jobs:
           cd $TARGET_DIR
           
           docker login ghcr.io -u ${GITHUB_USER} --password ${GHCR_TOKEN}
-          
-          docker image inspect $IMAGE_BASE:$LATEST > /dev/null 2>&1 && docker tag $IMAGE_BASE:$LATEST $IMAGE_BASE:$BACKUP || echo "No existing image to backup"
+          echo "---------------------------------------login"          
           
           docker pull $IMAGE_BASE:$LATEST > /dev/null 2>&1 \
             && docker tag $IMAGE_BASE:$LATEST $IMAGE_BASE:$BACKUP \
             && docker push $IMAGE_BASE:$BACKUP
-          
-          echo "---------------------------------------backup pushed $IMAGE_BASE:$BACKUP"          
+          echo "---------------------------------------backup pushed $IMAGE_BASE:$BACKUP"         
+           
           docker compose -f $COMPOSE down
           
           #latest
