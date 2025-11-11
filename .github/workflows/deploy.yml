@@ -107,7 +107,7 @@ jobs:
           GHCR_USER=$(echo "${{ github.actor }}" | tr '[:upper:]' '[:lower:]')
           echo "GHCR_USER=$GHCR_USER" >> $GITHUB_ENV
 
-          DATE=$(date +%Y%m%d)
+          DATE=$(date +%Y%m%d%H%M%S)
           COMMIT=$(git rev-parse --short HEAD)
           echo "TAG=${DATE}-${COMMIT}" >> $GITHUB_ENV
           echo "TAG_NAME=${DATE}-${COMMIT}"
