@@ -48,3 +48,4 @@ jobs:
       status: ${{ needs.rollback.result }}
       workflow_name: ${{ github.workflow }}
     secrets: inherit      
+
