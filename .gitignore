@@ -34,5 +34,6 @@ build/
 
 ### env ###
 /src/main/resources/application.properties
+/src/main/resources/wallet/
 /src/main/resources/firebase/*.json
 #/.github/workflows/*.yml
